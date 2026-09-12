@@ -69,3 +69,4 @@ next-env.d.ts
 start-dev.sh
 scripts/set-render-env.py
 scripts/*.py
+.vercel
