@@ -117,7 +117,9 @@ export async function sendPresenceViaGateway(
 ): Promise<PresenceResult> {
   return new Promise((resolve) => {
     try {
-      const ws = new WebSocket(`${CONFIG.discord.gatewayUrl}&encoding=json`)
+      // Use the Gaming SDK gateway URL directly (already includes ?v=10&encoding=json)
+      const gatewayUrl = CONFIG.discord.gatewayUrl
+      const ws = new WebSocket(gatewayUrl)
 
       let resolved = false
       const finish = (result: PresenceResult) => {
@@ -146,15 +148,14 @@ export async function sendPresenceViaGateway(
           const payload = JSON.parse(raw)
           const op = payload.op
           const t = payload.t
-          const d = payload.d
 
           if (op === 10) {
             // HELLO — send IDENTIFY
+            // For OAuth2 user tokens, do NOT include `intents` — it's only for bot tokens
             const identify = {
               op: 2,
               d: {
                 token: accessToken,
-                intents: 0, // No gateway intents needed for presence-only
                 properties: {
                   os: 'linux',
                   browser: '10X RPC',
@@ -175,7 +176,7 @@ export async function sendPresenceViaGateway(
             finish({
               ok: true,
               method: 'gateway',
-              message: 'Presence sent via Discord gateway',
+              message: 'Presence sent via Gaming SDK gateway',
               activity,
             })
           } else if (op === 0 && t === 'PRESENCE_UPDATE') {
@@ -215,13 +216,31 @@ export async function sendPresenceViaGateway(
         })
       })
 
-      ws.on('close', () => {
+      ws.on('close', (code: number, reason: Buffer) => {
         clearTimeout(timeout)
         if (!resolved) {
+          let msg = 'Gateway connection closed before READY'
+          // Discord close codes:
+          // 4004 = Authentication failed (bad token)
+          // 4014 = Disallowed intent(s)
+          // 4000 = Unknown error
+          // 4001 = Unknown opcode
+          // 4003 = Not authenticated
+          // 4007 = Invalid seq
+          // 4008 = Rate limited
+          // 4009 = Session timed out
+          if (code === 4004) {
+            msg = 'Authentication failed — Discord rejected the OAuth2 token. Make sure your app has the sdk.social_layer_presence scope.'
+          } else if (code === 4014) {
+            msg = 'Disallowed intent(s) — your Discord app may not have the required permissions.'
+          } else if (code) {
+            const reasonStr = reason.toString()
+            msg = `Gateway closed (code ${code}): ${reasonStr || 'no reason given'}`
+          }
           finish({
             ok: false,
             method: 'gateway',
-            message: 'Gateway connection closed before READY',
+            message: msg,
           })
         }
       })
@@ -425,37 +444,65 @@ export async function applyPresence(
     activity = await buildActivityPayload(rpcConfig, placeholderCtx)
   }
 
-  // Send presence via gateway
+  // Send presence via Gaming SDK gateway
   const gatewayResult = await sendPresenceViaGateway(
     accessToken,
     activity,
     session.userStatus
   )
 
-  // Also set custom status via REST (works independently of gateway)
+  // Always try REST API for custom status + user status (works independently of gateway)
+  // Even if the gateway fails, the user status + custom status should still be set
+  let restSuccess = false
+  let restMessages: string[] = []
+
   if (session.customStatus || session.customStatusEmoji) {
-    await setCustomStatusViaRest(
+    const csResult = await setCustomStatusViaRest(
       accessToken,
       session.customStatusEmoji,
       session.customStatus
     )
+    if (csResult.ok) restSuccess = true
+    else restMessages.push(csResult.message)
   }
 
-  // Also set user status via REST
-  await setStatusViaRest(accessToken, session.userStatus)
+  const statusResult = await setStatusViaRest(accessToken, session.userStatus)
+  if (statusResult.ok) restSuccess = true
+  else restMessages.push(statusResult.message)
+
+  // Determine final result
+  // If gateway succeeded → great, full RPC is live
+  // If gateway failed but REST succeeded → custom status + user status are set, but no rich presence activity
+  // If both failed → error
+  let finalResult: PresenceResult
+  if (gatewayResult.ok) {
+    finalResult = gatewayResult
+  } else if (restSuccess) {
+    finalResult = {
+      ok: true,
+      method: 'rest',
+      message: `Status + custom status set via REST (gateway failed: ${gatewayResult.message})`,
+    }
+  } else {
+    finalResult = {
+      ok: false,
+      method: 'none',
+      message: `Gateway: ${gatewayResult.message}. REST: ${restMessages.join('; ')}`,
+    }
+  }
 
   // Update session state
   const { db } = await import('./db')
   await db.session.update({
     where: { id: session.id },
     data: {
-      rpcEnabled: gatewayResult.ok,
+      rpcEnabled: finalResult.ok,
       gatewayReady: gatewayResult.ok,
       lastPresenceUpdate: new Date(),
     },
   })
 
-  return gatewayResult
+  return finalResult
 }
 
 /**

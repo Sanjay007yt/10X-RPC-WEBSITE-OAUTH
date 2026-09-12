@@ -6,19 +6,18 @@ import { useRouter } from './useRouter'
 import { Card, PrimaryButton, GhostButton, BackButton } from './ui'
 
 const PERMISSIONS = [
-  { icon: '👤', label: 'Access your profile information', granted: true },
-  { icon: '🖼️', label: 'Access your username, avatar, and banner', granted: true },
-  { icon: '👥', label: 'Manage your Discord friends list and blocked users', granted: true },
-  { icon: '📊', label: 'Access your Friends list and their online status', granted: true },
+  { icon: '👤', label: 'Access your profile information (username, avatar)', granted: true },
   { icon: '🎮', label: 'Update your activity status on Discord', granted: true },
-  { icon: '📨', label: 'Send and receive game invites', granted: true },
   { icon: '📝', label: 'Update your profile on Discord with your application activity', granted: true },
+  { icon: '⏰', label: 'Set custom status (emoji + text)', granted: true },
+  { icon: '🟢', label: 'Set user status (Online / Idle / DND / Invisible)', granted: true },
+  { icon: '🖼️', label: 'Display Rich Presence (game activity, images, buttons)', granted: true },
 ]
 
 const FEATURES = [
-  { icon: '👤', text: 'Add your Discord friends in the game (You can have up to 1000 friends)' },
   { icon: '🎮', text: 'Share your game activity with Discord' },
-  { icon: '⚙️', text: 'Receive personalized content and promotions if your Discord settings allow it' },
+  { icon: '⚙️', text: 'Set custom status with emoji + text' },
+  { icon: '🟢', text: 'Switch between Online, Idle, DND, and Invisible' },
 ]
 
 export function OAuthConsentPage() {

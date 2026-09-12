@@ -7,13 +7,19 @@ export const CONFIG = {
     clientSecret: process.env.DISCORD_CLIENT_SECRET || '',
     botToken: process.env.DISCORD_BOT_TOKEN || '',
     redirectUri: process.env.DISCORD_REDIRECT_URI || 'http://localhost:3000/auth/callback',
-    // Gaming SDK scopes — matches the Roxy reference consent screen.
-    // These enable rich presence, activity status, friend list access, and game invites.
-    scope: process.env.DISCORD_OAUTH_SCOPE || 'openid identify email guilds sdk.social_layer_presence relationships.read',
+    // Gaming SDK scope — required for the Gaming SDK gateway connection.
+    // `sdk.social_layer_presence` is what allows the app to push presence updates.
+    // Do NOT add `activities.write` or `relationships.read` — they get rejected
+    // for non-Gaming-SDK-verified apps.
+    scope: process.env.DISCORD_OAUTH_SCOPE || 'openid identify sdk.social_layer_presence',
     authorizeUrl: 'https://discord.com/api/oauth2/authorize',
     tokenUrl: 'https://discord.com/api/oauth2/token',
-    apiBase: 'https://discord.com/api/v10',
-    gatewayUrl: 'wss://gateway.discord.gg/?v=10&encoding=json',
+    apiBase: 'https://discord.com/api/v9',
+    // Gaming SDK gateway — this is DIFFERENT from the regular Discord gateway.
+    // OAuth2 user tokens are REJECTED on gateway.discord.gg.
+    // The Gaming SDK gateway (gateway.gaming-sdk.com) accepts OAuth2 user tokens
+    // that have the `sdk.social_layer_presence` scope.
+    gatewayUrl: 'wss://gateway.gaming-sdk.com/?v=10&encoding=json',
   },
   app: {
     name: '10X RPC',
