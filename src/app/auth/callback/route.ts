@@ -35,7 +35,9 @@ export async function GET(req: Request) {
   }
 
   try {
-    const redirectUri = `${CONFIG.app.url}/auth/callback`
+    // Use CONFIG.discord.redirectUri (Render backend URL) — must match what was
+    // sent in the /auth/discord redirect and what's registered in Discord Developer Portal.
+    const redirectUri = CONFIG.discord.redirectUri
     const tokens = await exchangeCode(code, verifier, redirectUri)
     const discordUser = await fetchDiscordUser(tokens.access_token)
 

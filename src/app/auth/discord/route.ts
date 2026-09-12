@@ -9,7 +9,11 @@ export async function GET() {
   const { verifier, challenge } = generatePkce()
   const state = crypto.randomUUID()
 
-  const redirectUri = `${CONFIG.app.url}/auth/callback`
+  // Use CONFIG.discord.redirectUri (Render backend URL) — NOT CONFIG.app.url (Vercel frontend).
+  // Discord redirects back to this URL after the user authorizes, so it MUST be the
+  // Render backend where /auth/callback runs, and it MUST match what's registered
+  // in the Discord Developer Portal.
+  const redirectUri = CONFIG.discord.redirectUri
   const authorizeUrl = buildAuthorizeUrl(state, challenge, redirectUri)
 
   const res = NextResponse.redirect(authorizeUrl)
