@@ -1,0 +1,78 @@
+// 10X RPC — /api/rpc/save — save or update the main RPC config
+import { NextResponse } from 'next/server'
+import { getSession } from '@/lib/session'
+import { db } from '@/lib/db'
+
+export const dynamic = 'force-dynamic'
+
+export interface RpcSaveInput {
+  name?: string
+  type?: string
+  platform?: string
+  state?: string | null
+  details?: string | null
+  largeImage?: string | null
+  largeText?: string | null
+  smallImage?: string | null
+  smallText?: string | null
+  button1Label?: string | null
+  button1Url?: string | null
+  button2Label?: string | null
+  button2Url?: string | null
+  partyCurrent?: number | null
+  partyMax?: number | null
+  partyId?: string | null
+  partySecret?: string | null
+  startMinsAgo?: number
+  endTotalMins?: number | null
+  enabled?: boolean
+}
+
+export async function POST(req: Request) {
+  const session = await getSession()
+  if (!session) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 })
+
+  const body: RpcSaveInput = await req.json()
+  const data = {
+    name: body.name ?? '10X RPC',
+    type: body.type ?? 'PLAYING',
+    platform: body.platform ?? 'desktop',
+    state: body.state ?? null,
+    details: body.details ?? null,
+    largeImage: body.largeImage ?? null,
+    largeText: body.largeText ?? null,
+    smallImage: body.smallImage ?? null,
+    smallText: body.smallText ?? null,
+    button1Label: body.button1Label ?? null,
+    button1Url: body.button1Url ?? null,
+    button2Label: body.button2Label ?? null,
+    button2Url: body.button2Url ?? null,
+    partyCurrent: body.partyCurrent ?? null,
+    partyMax: body.partyMax ?? null,
+    partyId: body.partyId ?? null,
+    partySecret: body.partySecret ?? null,
+    startMinsAgo: body.startMinsAgo ?? 0,
+    endTotalMins: body.endTotalMins ?? null,
+    enabled: body.enabled ?? false,
+  }
+
+  const existing = await db.rpcConfig.findFirst({ where: { userId: session.userId } })
+  let rpcConfig
+  if (existing) {
+    rpcConfig = await db.rpcConfig.update({ where: { id: existing.id }, data })
+  } else {
+    rpcConfig = await db.rpcConfig.create({ data: { userId: session.userId, ...data } })
+  }
+
+  // Update session.rpcEnabled to mirror config.enabled
+  await db.session.update({ where: { id: session.id }, data: { rpcEnabled: data.enabled } })
+
+  return NextResponse.json({ ok: true, rpcConfig })
+}
+
+export async function GET() {
+  const session = await getSession()
+  if (!session) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 })
+  const rpcConfig = await db.rpcConfig.findFirst({ where: { userId: session.userId } })
+  return NextResponse.json({ rpcConfig })
+}

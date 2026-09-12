@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+.next/
+out/
+build/
+dist/
+
+# Vercel
+.vercel/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+dev.log
+server.log
+
+# Database
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Old project — not part of 10X RPC deployment
+Discord-OAuth2-RPC/
+
+# Tests / tool-results
+tool-results/
+tests/
+
+# Screenshots / uploads
+upload/
+download/*.png
+download/*.jpg
+
+# Scripts (private)
+.zscripts/
+examples/
+
+# Prisma generated client (regenerated at build)
+prisma/migrations/dev.db*
+
+# Worklog (internal)
+worklog.md
+
+# Bun
+bun.lock
+
+# Misc
+*.tsbuildinfo
+next-env.d.ts
+start-dev.sh
+scripts/set-render-env.py
+scripts/*.py
