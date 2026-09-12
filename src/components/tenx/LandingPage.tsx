@@ -3,6 +3,7 @@
 import { PrimaryButton, GhostButton } from './ui'
 import { useRouter } from './useRouter'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { api, type Me } from '@/lib/api-client'
 
 export function LandingPage() {
@@ -11,6 +12,17 @@ export function LandingPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check for OAuth error in URL hash (e.g. #/?error=invalid_scope)
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash
+      const errorMatch = hash.match(/[?&]error=([^&]+)/)
+      if (errorMatch) {
+        const errMsg = decodeURIComponent(errorMatch[1])
+        toast.error(`OAuth error: ${errMsg}`, { duration: 6000 })
+        // Clear the error from URL
+        window.location.hash = ''
+      }
+    }
     api.me().then(m => { setMe(m); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 

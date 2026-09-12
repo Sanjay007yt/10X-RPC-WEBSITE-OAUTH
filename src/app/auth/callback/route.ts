@@ -71,12 +71,13 @@ export async function GET(req: Request) {
       await db.globalConfig.create({ data: { userId: user.id } })
     }
 
-    await setSessionCookie(user.id)
+    // Create the session and get the token back
+    // setSessionCookie() returns the session token we just created
+    const sessionToken = await setSessionCookie(user.id)
 
-    // Store the Discord OAuth tokens in the session so we can use them for RPC
-    const cookieHeader2 = req.headers.get('cookie') || ''
-    const sessionTokenMatch = cookieHeader2.match(/10x_rpc_session=([^;]+)/)
-    const sessionToken = sessionTokenMatch ? sessionTokenMatch[1] : null
+    // Now store the Discord OAuth tokens in that session
+    // BUG FIX: Previously was trying to read the cookie from req.headers (request headers)
+    // but the cookie was set on the RESPONSE, not the request. Now we use the returned token directly.
     if (sessionToken) {
       await db.session.update({
         where: { token: sessionToken },

@@ -90,14 +90,31 @@ export function ProfileSection({ me, onRefresh }: { me: Me; onRefresh: () => voi
       // Actually send presence to Discord via gateway
       const result = await api.rpcUpdate()
       if (result.ok) {
-        toast.success('✓ Presence sent to Discord', { duration: 3000 })
+        toast.success(`✓ ${result.message || 'Presence sent to Discord'}`, { duration: 3000 })
       } else {
         // Show the actual error message from the gateway
         const msg = result.message || result.error || 'Unknown error'
         if (msg.includes('No Discord access token') || msg.includes('demo')) {
-          toast.warning('Demo mode — sign in with Discord to push RPC to Discord', { duration: 4000 })
+          toast.warning(
+            'Demo mode — sign in with Discord to push RPC',
+            {
+              duration: 6000,
+              action: {
+                label: 'Sign in',
+                onClick: () => navigate({ name: 'oauth-consent' }),
+              },
+            }
+          )
         } else if (msg.includes('trial')) {
           toast.error('Trial expired — please upgrade to continue using RPC')
+        } else if (msg.includes('Authentication failed') || msg.includes('4004')) {
+          toast.error('Discord rejected the token. Sign out and sign in again.', {
+            duration: 5000,
+            action: {
+              label: 'Re-sign in',
+              onClick: () => navigate({ name: 'oauth-consent' }),
+            },
+          })
         } else {
           toast.error(`RPC failed: ${msg}`, { duration: 5000 })
         }
