@@ -39,12 +39,18 @@ model Session {
   expiresAt       DateTime
   createdAt       DateTime @default(now())
 
+  // Discord OAuth tokens (stored server-side only, never sent to client)
+  discordAccessToken    String?
+  discordRefreshToken  String?
+  discordTokenExpiresAt DateTime?
+
   // RPC state
   rpcEnabled      Boolean  @default(false)
   gatewayReady    Boolean  @default(false)
   userStatus      String   @default("online")
   customStatus    String?
   customStatusEmoji String?
+  lastPresenceUpdate DateTime?
 
   // VR / Meta Quest state
   vrStatusActive      Boolean  @default(false)

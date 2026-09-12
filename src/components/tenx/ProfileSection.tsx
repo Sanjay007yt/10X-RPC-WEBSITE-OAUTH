@@ -82,13 +82,26 @@ export function ProfileSection({ me, onRefresh }: { me: Me; onRefresh: () => voi
         toast.error('Custom message too long (max 128 chars)')
         return
       }
-      // Save custom status + RPC config, then apply
+      // Save custom status + RPC config first
       await api.customStatus(customEmoji || null, customMsg || null)
       if (me.rpcConfig) {
         await api.rpcSave({ ...me.rpcConfig, enabled: rpcEnabled })
       }
-      await api.rpcUpdate()
-      toast.success('Presence updated successfully', { duration: 2500 })
+      // Actually send presence to Discord via gateway
+      const result = await api.rpcUpdate()
+      if (result.ok) {
+        toast.success('✓ Presence sent to Discord', { duration: 3000 })
+      } else {
+        // Show the actual error message from the gateway
+        const msg = result.message || result.error || 'Unknown error'
+        if (msg.includes('No Discord access token') || msg.includes('demo')) {
+          toast.warning('Demo mode — sign in with Discord to push RPC to Discord', { duration: 4000 })
+        } else if (msg.includes('trial')) {
+          toast.error('Trial expired — please upgrade to continue using RPC')
+        } else {
+          toast.error(`RPC failed: ${msg}`, { duration: 5000 })
+        }
+      }
       onRefresh()
     } catch (e) {
       console.error(e)
@@ -414,6 +427,8 @@ export function ProfileSection({ me, onRefresh }: { me: Me; onRefresh: () => voi
           avatarUrl={me.user.avatar}
           platform={me.rpcConfig?.platform}
           rpcEnabled={rpcEnabled}
+          hasDiscordToken={me.session?.hasDiscordToken}
+          lastPresenceUpdate={me.session?.lastPresenceUpdate}
         />
       </Card>
 

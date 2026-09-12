@@ -51,6 +51,8 @@ export async function GET() {
       vrStatusActive: session.vrStatusActive,
       sleepTimerActive,
       sleepTimerEndsAt: session.sleepTimerEndsAt,
+      hasDiscordToken: !!session.discordAccessToken,
+      lastPresenceUpdate: session.lastPresenceUpdate,
     },
     trial: {
       active: trialActive,

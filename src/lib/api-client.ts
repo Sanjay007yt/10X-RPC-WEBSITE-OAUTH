@@ -17,6 +17,8 @@ export interface Me {
     vrStatusActive: boolean
     sleepTimerActive: boolean
     sleepTimerEndsAt: string | null
+    hasDiscordToken?: boolean
+    lastPresenceUpdate?: string | null
   }
   trial?: {
     active: boolean
@@ -146,8 +148,20 @@ export const api = {
     method: 'POST', body: JSON.stringify(data),
   }),
   rpcGet: () => fetchJson<{ rpcConfig: RpcConfig | null }>('/api/rpc'),
-  rpcUpdate: () => fetchJson<{ ok: boolean; message: string }>('/api/rpc/update', { method: 'POST' }),
-  rpcToggle: (enabled: boolean) => fetchJson<{ ok: boolean; enabled: boolean }>('/api/rpc/toggle', {
+  rpcUpdate: () => fetchJson<{
+    ok: boolean
+    method?: string
+    message?: string
+    error?: string
+    rpcEnabled?: boolean
+    gatewayReady?: boolean
+  }>('/api/rpc/update', { method: 'POST' }),
+  rpcToggle: (enabled: boolean) => fetchJson<{
+    ok: boolean
+    enabled: boolean
+    message?: string
+    error?: string
+  }>('/api/rpc/toggle', {
     method: 'POST', body: JSON.stringify({ enabled }),
   }),
 

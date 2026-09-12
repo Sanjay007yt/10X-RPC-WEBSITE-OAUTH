@@ -10,9 +10,11 @@ interface PreviewProps {
   avatarUrl?: string
   platform?: string
   rpcEnabled?: boolean
+  hasDiscordToken?: boolean
+  lastPresenceUpdate?: string | null
 }
 
-export function DiscordPreview({ config, username, avatarUrl, platform, rpcEnabled }: PreviewProps) {
+export function DiscordPreview({ config, username, avatarUrl, platform, rpcEnabled, hasDiscordToken, lastPresenceUpdate }: PreviewProps) {
   const [, setNow] = useState(Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -53,9 +55,16 @@ export function DiscordPreview({ config, username, avatarUrl, platform, rpcEnabl
     <div className="glass-card-inner p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] uppercase tracking-wider text-purple-400 font-semibold">Live Preview</span>
-        <span className={`text-[10px] uppercase tracking-wider font-semibold ${rpcEnabled ? 'text-green-400' : 'text-white/40'}`}>
-          {rpcEnabled ? '● LIVE' : '○ DISABLED'}
-        </span>
+        <div className="flex items-center gap-2">
+          {hasDiscordToken === false && (
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-yellow-400/80">
+              ⚠ DEMO
+            </span>
+          )}
+          <span className={`text-[10px] uppercase tracking-wider font-semibold ${rpcEnabled ? 'text-green-400' : 'text-white/40'}`}>
+            {rpcEnabled ? '● LIVE' : '○ DISABLED'}
+          </span>
+        </div>
       </div>
 
       {/* Discord-style activity card */}

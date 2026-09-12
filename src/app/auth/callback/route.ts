@@ -73,6 +73,21 @@ export async function GET(req: Request) {
 
     await setSessionCookie(user.id)
 
+    // Store the Discord OAuth tokens in the session so we can use them for RPC
+    const cookieHeader2 = req.headers.get('cookie') || ''
+    const sessionTokenMatch = cookieHeader2.match(/10x_rpc_session=([^;]+)/)
+    const sessionToken = sessionTokenMatch ? sessionTokenMatch[1] : null
+    if (sessionToken) {
+      await db.session.update({
+        where: { token: sessionToken },
+        data: {
+          discordAccessToken: tokens.access_token,
+          discordRefreshToken: tokens.refresh_token,
+          discordTokenExpiresAt: new Date(Date.now() + (tokens.expires_in || 604800) * 1000),
+        },
+      })
+    }
+
     const res = NextResponse.redirect(`${CONFIG.app.url}/#/dashboard`)
     res.cookies.delete('10x_pkce_verifier')
     res.cookies.delete('10x_oauth_state')
