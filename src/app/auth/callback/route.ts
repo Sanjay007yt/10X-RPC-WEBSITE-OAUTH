@@ -1,4 +1,6 @@
 // 10X RPC — OAuth callback handler
+// Looks up the PKCE verifier from the database by state (NOT cookies).
+// This works across the Vercel→Render proxy.
 import { NextResponse } from 'next/server'
 import { exchangeCode, fetchDiscordUser, avatarUrl } from '@/lib/discord-oauth'
 import { CONFIG } from '@/lib/config'
@@ -20,23 +22,27 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${CONFIG.app.url}/#/?error=missing_code`)
   }
 
-  // Pull verifier + state from cookies
-  const cookieHeader = req.headers.get('cookie') || ''
-  const cookies = Object.fromEntries(
-    cookieHeader.split('; ').map(c => {
-      const idx = c.indexOf('=')
-      return [c.slice(0, idx), c.slice(idx + 1)]
-    })
-  )
-  const verifier = cookies['10x_pkce_verifier']
-  const savedState = cookies['10x_oauth_state']
-  if (!verifier || savedState !== state) {
+  // Look up the PKCE verifier from the database by state
+  const oauthState = await db.oAuthState.findUnique({
+    where: { state },
+  })
+
+  if (!oauthState) {
     return NextResponse.redirect(`${CONFIG.app.url}/#/?error=invalid_state`)
   }
 
+  // Check if the state has expired
+  if (oauthState.expiresAt < new Date()) {
+    await db.oAuthState.delete({ where: { id: oauthState.id } }).catch(() => {})
+    return NextResponse.redirect(`${CONFIG.app.url}/#/?error=state_expired`)
+  }
+
+  const verifier = oauthState.verifier
+
+  // Delete the state so it can't be reused (one-time use)
+  await db.oAuthState.delete({ where: { id: oauthState.id } }).catch(() => {})
+
   try {
-    // Use CONFIG.discord.redirectUri (Render backend URL) — must match what was
-    // sent in the /auth/discord redirect and what's registered in Discord Developer Portal.
     const redirectUri = CONFIG.discord.redirectUri
     const tokens = await exchangeCode(code, verifier, redirectUri)
     const discordUser = await fetchDiscordUser(tokens.access_token)
@@ -74,12 +80,9 @@ export async function GET(req: Request) {
     }
 
     // Create the session and get the token back
-    // setSessionCookie() returns the session token we just created
     const sessionToken = await setSessionCookie(user.id)
 
-    // Now store the Discord OAuth tokens in that session
-    // BUG FIX: Previously was trying to read the cookie from req.headers (request headers)
-    // but the cookie was set on the RESPONSE, not the request. Now we use the returned token directly.
+    // Store the Discord OAuth tokens in that session
     if (sessionToken) {
       await db.session.update({
         where: { token: sessionToken },
@@ -91,10 +94,7 @@ export async function GET(req: Request) {
       })
     }
 
-    const res = NextResponse.redirect(`${CONFIG.app.url}/#/dashboard`)
-    res.cookies.delete('10x_pkce_verifier')
-    res.cookies.delete('10x_oauth_state')
-    return res
+    return NextResponse.redirect(`${CONFIG.app.url}/#/dashboard`)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown_error'
     return NextResponse.redirect(`${CONFIG.app.url}/#/?error=${encodeURIComponent(msg)}`)

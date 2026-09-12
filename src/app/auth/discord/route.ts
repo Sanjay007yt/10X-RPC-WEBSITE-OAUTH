@@ -1,7 +1,11 @@
 // 10X RPC — Initiate Discord OAuth flow
+// Stores PKCE verifier in the database keyed by state (NOT cookies).
+// This works across the Vercel→Render proxy because the verifier is
+// looked up by state in the callback, not read from cookies.
 import { NextResponse } from 'next/server'
 import { generatePkce, buildAuthorizeUrl } from '@/lib/discord-oauth'
 import { CONFIG } from '@/lib/config'
+import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,21 +13,22 @@ export async function GET() {
   const { verifier, challenge } = generatePkce()
   const state = crypto.randomUUID()
 
-  // Use CONFIG.discord.redirectUri (Render backend URL) — NOT CONFIG.app.url (Vercel frontend).
-  // Discord redirects back to this URL after the user authorizes, so it MUST be the
-  // Render backend where /auth/callback runs, and it MUST match what's registered
-  // in the Discord Developer Portal.
+  // Store verifier in DB keyed by state (expires in 10 minutes)
+  await db.oAuthState.create({
+    data: {
+      state,
+      verifier,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+  })
+
+  // Clean up expired states (best-effort, don't block)
+  db.oAuthState.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
+  }).catch(() => {})
+
   const redirectUri = CONFIG.discord.redirectUri
   const authorizeUrl = buildAuthorizeUrl(state, challenge, redirectUri)
 
-  const res = NextResponse.redirect(authorizeUrl)
-  res.cookies.set('10x_pkce_verifier', verifier, {
-    httpOnly: true, secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax', path: '/', maxAge: 600,
-  })
-  res.cookies.set('10x_oauth_state', state, {
-    httpOnly: true, secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax', path: '/', maxAge: 600,
-  })
-  return res
+  return NextResponse.redirect(authorizeUrl)
 }
